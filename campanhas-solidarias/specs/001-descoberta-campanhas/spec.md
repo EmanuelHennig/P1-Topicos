@@ -8,6 +8,14 @@
 
 **Input**: User description: Plataforma web para divulgação e descoberta de campanhas solidárias, conforme escopo e regras fornecidos.
 
+## Clarifications
+
+### Session 2026-10-10
+
+- Q: Como um organizador deve comprovar que é o administrador autorizado de uma campanha para cadastrar e atualizar informações? → A: Um token de gerenciamento é gerado no cadastro da campanha; apoiadores navegam anonimamente.
+- Q: Como a busca deve definir quais campanhas são próximas o bastante para exibir? → A: Exibir todas as campanhas não encerradas, ordenadas da mais próxima à mais distante.
+- Q: Como o apoiador define o local de busca? → A: Informa manualmente uma cidade ou CEP; a plataforma não usa a localização do dispositivo.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Cadastrar e publicar campanha (Priority: P1)
@@ -32,14 +40,15 @@ O apoiador informa onde está, localiza campanhas próximas e refina os resultad
 
 **Why this priority**: Resolve diretamente a dificuldade de apoiadores em saber quais campanhas estão acontecendo perto deles.
 
-**Independent Test**: Com campanhas fictícias em locais e categorias distintos, o apoiador busca pela localização atual ou por cidade/CEP e verifica que os filtros retornam somente campanhas correspondentes e não encerradas.
+**Independent Test**: Com campanhas fictícias em locais e categorias distintos, o apoiador informa uma cidade ou CEP e verifica que os filtros retornam somente campanhas correspondentes e não encerradas.
 
 **Acceptance Scenarios**:
 
-1. **Given** que o apoiador concede permissão explícita para usar sua localização, **When** consulta campanhas próximas, **Then** são exibidas campanhas publicadas ordenadas pela proximidade, sem armazenar a localização do apoiador.
-2. **Given** que o apoiador nega ou não concede permissão de localização, **When** escolhe busca manual, **Then** pode informar cidade ou CEP e consultar campanhas próximas desse local.
+1. **Given** que o apoiador informa manualmente uma cidade ou CEP, **When** consulta campanhas próximas, **Then** são exibidas campanhas publicadas ordenadas pela proximidade, sem armazenar o local informado.
+2. **Given** que o apoiador informa uma cidade ou CEP vazio ou não reconhecido, **When** realiza a busca, **Then** pode corrigir o valor sem que a plataforma solicite a localização do dispositivo.
 3. **Given** que há campanhas de várias categorias e instituições, **When** o apoiador filtra por categoria, por nome da instituição ou por ambos, **Then** cada resultado corresponde a todos os filtros aplicados.
 4. **Given** que uma campanha tem data de término anterior à data atual, **When** o apoiador consulta campanhas próximas, **Then** essa campanha não aparece nos resultados.
+5. **Given** campanhas publicadas ainda não encerradas em diferentes distâncias, **When** o apoiador realiza uma busca, **Then** todas aparecem sem limite de raio e são ordenadas da mais próxima à mais distante.
 
 ---
 
@@ -60,25 +69,26 @@ O apoiador abre a página de uma campanha para consultar o que ela precisa e aco
 
 ### User Story 4 - Administrar necessidades e atualizações (Priority: P2)
 
-O administrador responsável pela campanha cadastra necessidades e publica informações de andamento; somente esse administrador pode fazer essas publicações ou marcar uma necessidade como atendida.
+Ao cadastrar uma campanha, o organizador recebe um token de gerenciamento vinculado a ela. Apoiadores consultam a plataforma sem cadastro ou autenticação. O administrador responsável apresenta o token para cadastrar necessidades, publicar informações de andamento ou marcar necessidades como atendidas.
 
 **Why this priority**: Permite que organizadores comuniquem necessidades concretas e mantenham o público atualizado, preservando o controle da campanha.
 
-**Independent Test**: Com uma campanha e um administrador identificados, testar publicação e atendimento de necessidades e publicação de atualizações por esse administrador e por outro usuário.
+**Independent Test**: Com campanhas fictícias e seus tokens de gerenciamento, verificar que o token correto permite administrar somente a campanha associada e que token ausente ou inválido não autoriza alterações.
 
 **Acceptance Scenarios**:
 
-1. **Given** que o usuário é administrador da campanha, **When** cadastra uma necessidade, **Then** ela é associada à campanha e fica disponível ao público como aberta.
-2. **Given** que o usuário é administrador da campanha, **When** publica uma atualização informativa, **Then** ela aparece na página pública da campanha.
-3. **Given** que o usuário não é administrador da campanha, **When** tenta cadastrar ou alterar necessidades, marcar uma necessidade como atendida ou publicar uma atualização, **Then** a ação é recusada e o conteúdo não é alterado.
+1. **Given** que o organizador apresenta o token de gerenciamento da campanha, **When** cadastra uma necessidade, **Then** ela é associada à campanha e fica disponível ao público como aberta.
+2. **Given** que o organizador apresenta o token de gerenciamento da campanha, **When** publica uma atualização informativa, **Then** ela aparece na página pública da campanha.
+3. **Given** que o token de gerenciamento está ausente, é inválido ou pertence a outra campanha, **When** é usada uma operação administrativa, **Then** a ação é recusada e o conteúdo não é alterado.
 4. **Given** uma necessidade em aberto, **When** o administrador a marca como atendida, **Then** ela deixa de aparecer entre as necessidades em aberto.
+5. **Given** que o apoiador não tem conta, **When** consulta campanhas e suas páginas, **Then** acessa o conteúdo público sem cadastro.
 
 ### Edge Cases
 
 - Uma tentativa de publicação com um ou mais campos obrigatórios ausentes deve indicar os campos pendentes e não tornar a campanha pública.
 - Uma data de término anterior à data de início deve ser rejeitada; campanhas com término na data atual ainda podem aparecer na busca.
 - A busca manual deve aceitar cidade ou CEP; entrada vazia ou não reconhecida deve permitir correção sem recorrer à localização do dispositivo.
-- Negar permissão de localização não deve impedir o uso da busca manual nem causar armazenamento de coordenadas.
+- Localização vazia ou não reconhecida deve permitir correção; a plataforma não deve solicitar a localização do dispositivo nem armazenar o valor informado.
 - Filtros combinados não devem incluir campanha que falhe em qualquer filtro aplicado.
 - Necessidade atendida não deve reaparecer como aberta; tentativas de alteração por não administradores devem ser recusadas.
 - Campanhas sem resultados correspondentes devem apresentar um estado vazio informativo, sem incluir campanhas encerradas.
@@ -91,10 +101,10 @@ O administrador responsável pela campanha cadastra necessidades e publica infor
 - **FR-002**: A categoria MUST ser uma das opções: doação de roupas, doação de alimentos, adoção de animais ou outras.
 - **FR-003**: A plataforma MUST impedir a publicação de campanhas sem categoria, local, data de início ou data de término e MUST rejeitar data de término anterior à data de início.
 - **FR-004**: A plataforma MUST disponibilizar para consulta pública as campanhas publicadas e permitir a abertura de uma página com seus dados cadastrados.
-- **FR-005**: A plataforma MUST permitir busca de campanhas próximas à localização atual somente após permissão explícita do apoiador; MUST NOT armazenar a localização do apoiador.
-- **FR-006**: Se o apoiador não conceder permissão de localização, a plataforma MUST permitir informar manualmente uma cidade ou CEP para buscar campanhas próximas desse local e MUST NOT armazenar o local informado.
+- **FR-005**: A plataforma MUST permitir busca de campanhas próximas somente a partir de uma cidade ou CEP informados manualmente pelo apoiador e MUST NOT solicitar ou usar a localização do dispositivo.
+- **FR-006**: A plataforma MUST permitir corrigir uma cidade ou CEP vazio ou não reconhecido e MUST NOT armazenar o local informado.
 - **FR-007**: A busca MUST permitir filtrar por categoria e por nome da instituição, individualmente ou em conjunto, e MUST exibir apenas campanhas que correspondam aos filtros.
-- **FR-008**: A busca de próximas MUST excluir campanhas com data de término anterior à data atual e MUST ordenar os resultados por proximidade do local de busca.
+- **FR-008**: A busca MUST exibir todas as campanhas publicadas com data de término igual ou posterior à data atual, sem limite máximo de distância, ordenadas da mais próxima à mais distante em relação ao local de busca.
 - **FR-009**: A plataforma MUST permitir que o administrador da campanha cadastre necessidades com a descrição do item e a quantidade/unidade quando aplicável; necessidades novas ficam abertas para consulta pública.
 - **FR-010**: A plataforma MUST permitir que o administrador marque uma necessidade aberta como atendida; necessidades atendidas MUST deixar de aparecer na lista de necessidades abertas.
 - **FR-011**: A plataforma MUST permitir que o administrador publique atualizações informativas associadas à sua campanha e disponibilizá-las na página pública da campanha.
@@ -102,14 +112,15 @@ O administrador responsável pela campanha cadastra necessidades e publica infor
 - **FR-013**: A interface MUST estar em português do Brasil, adaptar-se a telas móveis e desktop e permitir navegação e operação por teclado.
 - **FR-014**: Dados pessoais usados no repositório, em exemplos ou em testes MUST ser fictícios; dados reais de apoiadores não fazem parte do escopo.
 - **FR-015**: A plataforma MUST NOT incluir aplicativo móvel nativo, pagamentos ou doações financeiras, chat, comentários do público, notificações push, moderação automática de conteúdo ou avaliações de campanhas.
+- **FR-016**: A plataforma MUST gerar um token de gerenciamento vinculado à campanha no cadastro e exigi-lo para operações administrativas dessa campanha; apoiadores MUST poder consultar conteúdo público sem cadastro ou autenticação.
 
 ### Key Entities *(include if feature involves data)*
 
 - **Campanha**: ação solidária com categoria, título, descrição, instituição responsável, local, período e administrador responsável; pode ser publicada para consulta pública.
-- **Administrador da campanha**: usuário autorizado a administrar uma campanha específica, publicar suas necessidades e atualizações e registrar o atendimento de necessidades.
+- **Token de gerenciamento**: credencial vinculada a uma campanha, fornecida ao organizador no cadastro e usada para autorizar operações administrativas somente nessa campanha.
 - **Necessidade**: item ou recurso solicitado por uma campanha, com descrição e quantidade/unidade quando aplicável, e estado aberta ou atendida.
 - **Atualização**: postagem informativa de andamento, publicada pelo administrador e associada a uma campanha.
-- **Local de busca**: localização atual consentida ou cidade/CEP informado manualmente, usada somente para consultar e ordenar resultados; não é armazenada, independentemente de sua origem.
+- **Local de busca**: cidade ou CEP informado manualmente pelo apoiador, usado somente para consultar e ordenar resultados; não é armazenado.
 
 ## Success Criteria *(mandatory)*
 
@@ -125,9 +136,9 @@ O administrador responsável pela campanha cadastra necessidades e publica infor
 ## Assumptions
 
 - A busca apresenta campanhas publicadas cujo término seja hoje ou futuro, incluindo campanhas ainda não iniciadas; campanhas encerradas são excluídas.
-- “Próximas” significa ordenar os resultados pela distância em relação ao local de busca; o MVP não impõe um raio máximo não especificado.
-- Cidade e CEP são formas válidas de localização manual; a correspondência de CEP ou cidade será resolvida pela plataforma sem solicitar localização do dispositivo.
-- Cada campanha tem um administrador identificável e a plataforma consegue verificar sua autorização; o método de criação de contas e autenticação não foi definido neste escopo.
+- A busca não aplica um raio máximo: exibe todas as campanhas publicadas não encerradas e ordena os resultados pela distância em relação ao local de busca.
+- Cidade e CEP são formas válidas de localização manual; a correspondência será resolvida pela plataforma sem solicitar localização do dispositivo.
+- Cada campanha tem um token de gerenciamento próprio, gerado no cadastro e usado apenas para administrar a campanha associada; apoiadores não precisam de conta ou autenticação para consultar conteúdo público.
 - A categoria “outras” pode ser complementada pela descrição da campanha, sem criar categorias adicionais no MVP.
 - Quantidade e unidade são informadas quando fizer sentido para a necessidade; necessidades que não dependem de quantidade podem ser descritas sem esses campos.
 - Usuários de demonstração e exemplos de campanha usam dados fictícios; nenhuma informação pessoal real será incluída no repositório.

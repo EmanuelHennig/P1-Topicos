@@ -1,0 +1,381 @@
+openapi: 3.1.0
+info:
+  title: Campanhas Solidárias API
+  version: 1.0.0
+  description: API pública de campanhas com operações administrativas autorizadas por token por campanha.
+servers:
+  - url: /api
+paths:
+  /campaigns:
+    post:
+      summary: Cadastrar e publicar uma campanha
+      description: Retorna o token de gerenciamento uma única vez; nunca registrar o token ou o corpo da requisição.
+      operationId: createCampaign
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CampaignInput'
+      responses:
+        '201':
+          description: Campanha publicada; guardar o token para gerenciá-la.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [campaign, managementToken]
+                properties:
+                  campaign:
+                    $ref: '#/components/schemas/Campaign'
+                  managementToken:
+                    type: string
+                    description: Segredo bruto retornado somente nesta criação.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+  /campaign-search:
+    post:
+      summary: Buscar campanhas por cidade ou CEP
+      description: A localidade é processada para esta busca e não é persistida nem incluída em logs.
+      operationId: searchCampaigns
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CampaignSearch'
+      responses:
+        '200':
+          description: Todas as campanhas publicadas não encerradas em ordem crescente de distância.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CampaignSearchResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '503':
+          description: Serviço de resolução de CEP indisponível; uma busca por cidade ainda pode ser feita.
+  /campaigns/{campaignId}:
+    get:
+      summary: Consultar campanha e conteúdo público
+      operationId: getCampaign
+      parameters:
+        - $ref: '#/components/parameters/CampaignId'
+      responses:
+        '200':
+          description: Campanha, necessidades em aberto e atualizações públicas.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CampaignDetail'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /campaigns/{campaignId}/needs:
+    post:
+      summary: Cadastrar necessidade
+      operationId: createNeed
+      security:
+        - CampaignManagementToken: []
+      parameters:
+        - $ref: '#/components/parameters/CampaignId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NeedInput'
+      responses:
+        '201':
+          description: Necessidade criada como aberta.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Need'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /campaigns/{campaignId}/needs/{needId}:
+    patch:
+      summary: Marcar necessidade como atendida
+      operationId: markNeedAttended
+      security:
+        - CampaignManagementToken: []
+      parameters:
+        - $ref: '#/components/parameters/CampaignId'
+        - name: needId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  const: attended
+      responses:
+        '200':
+          description: Necessidade deixa de aparecer na lista pública de abertas.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Need'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /campaigns/{campaignId}/updates:
+    post:
+      summary: Publicar atualização da campanha
+      operationId: createUpdate
+      security:
+        - CampaignManagementToken: []
+      parameters:
+        - $ref: '#/components/parameters/CampaignId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [content]
+              properties:
+                content:
+                  type: string
+                  minLength: 1
+      responses:
+        '201':
+          description: Atualização publicada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Update'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+components:
+  securitySchemes:
+    CampaignManagementToken:
+      type: http
+      scheme: bearer
+      bearerFormat: opaque campaign-scoped token
+  parameters:
+    CampaignId:
+      name: campaignId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  responses:
+    BadRequest:
+      description: Entrada inválida.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unauthorized:
+      description: Token ausente ou inválido para esta campanha.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: Campanha ou necessidade não encontrada.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+  schemas:
+    CampaignInput:
+      type: object
+      required: [category, title, description, institutionName, location, startsOn, endsOn]
+      properties:
+        category:
+          type: string
+          enum: [clothing, food, animal-adoption, other]
+        title:
+          type: string
+          minLength: 1
+        description:
+          type: string
+          minLength: 1
+        institutionName:
+          type: string
+          minLength: 1
+        location:
+          type: object
+          required: [label, city, state]
+          properties:
+            label:
+              type: string
+            city:
+              type: string
+            state:
+              type: string
+              pattern: '^[A-Z]{2}$'
+            postalCode:
+              type: string
+        startsOn:
+          type: string
+          format: date
+        endsOn:
+          type: string
+          format: date
+    CampaignSearch:
+      type: object
+      required: [location]
+      properties:
+        location:
+          oneOf:
+            - type: object
+              required: [type, city, state]
+              properties:
+                type:
+                  const: city
+                city:
+                  type: string
+                state:
+                  type: string
+                  pattern: '^[A-Z]{2}$'
+            - type: object
+              required: [type, postalCode]
+              properties:
+                type:
+                  const: postalCode
+                postalCode:
+                  type: string
+                  pattern: '^[0-9]{8}$'
+        category:
+          type: string
+          enum: [clothing, food, animal-adoption, other]
+        institutionName:
+          type: string
+    Campaign:
+      type: object
+      required: [id, category, title, description, institutionName, location, startsOn, endsOn]
+      properties:
+        id:
+          type: string
+          format: uuid
+        category:
+          type: string
+          enum: [clothing, food, animal-adoption, other]
+        title:
+          type: string
+        description:
+          type: string
+        institutionName:
+          type: string
+        location:
+          $ref: '#/components/schemas/CampaignLocation'
+        startsOn:
+          type: string
+          format: date
+        endsOn:
+          type: string
+          format: date
+    CampaignLocation:
+      type: object
+      required: [label, city, state]
+      properties:
+        label:
+          type: string
+        city:
+          type: string
+        state:
+          type: string
+        postalCode:
+          type: string
+    CampaignSearchResult:
+      allOf:
+        - $ref: '#/components/schemas/Campaign'
+        - type: object
+          required: [distanceKm]
+          properties:
+            distanceKm:
+              type: number
+              minimum: 0
+    CampaignDetail:
+      allOf:
+        - $ref: '#/components/schemas/Campaign'
+        - type: object
+          required: [openNeeds, updates]
+          properties:
+            openNeeds:
+              type: array
+              items:
+                $ref: '#/components/schemas/Need'
+            updates:
+              type: array
+              items:
+                $ref: '#/components/schemas/Update'
+    NeedInput:
+      type: object
+      required: [description]
+      properties:
+        description:
+          type: string
+          minLength: 1
+        quantity:
+          type: number
+          exclusiveMinimum: 0
+        unit:
+          type: string
+    Need:
+      allOf:
+        - $ref: '#/components/schemas/NeedInput'
+        - type: object
+          required: [id, campaignId, status, createdAt]
+          properties:
+            id:
+              type: string
+              format: uuid
+            campaignId:
+              type: string
+              format: uuid
+            status:
+              type: string
+              enum: [open, attended]
+            createdAt:
+              type: string
+              format: date-time
+            attendedAt:
+              type: string
+              format: date-time
+    Update:
+      type: object
+      required: [id, campaignId, content, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        campaignId:
+          type: string
+          format: uuid
+        content:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+        message:
+          type: string
