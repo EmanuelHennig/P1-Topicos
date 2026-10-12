@@ -3,6 +3,7 @@
 - **Disciplina:** Tópicos especiais em Desenvolvimento de Software
 - **Professor:** Francisco Carlos Souza
 - **Alunos:** Camila Bregalda e Emanuel Hennig
+- **Disponível no Github:** https://github.com/EmanuelHennig/P1-Topicos.git
 
 ## 1. Produto escolhido e escopo do MVP
 
