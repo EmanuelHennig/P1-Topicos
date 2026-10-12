@@ -74,10 +74,13 @@ controlada pelo projeto e deve ser considerada antes da implantação.
 
 - Declararia desde a primeira especificação que a busca é exclusivamente manual,
 	sem localização do dispositivo, e explicaria como a distância municipal aproxima
-	a ideia de “perto”.
+	a ideia de “perto”. Esse ponto não havia sido considerado inicialmente e necessitou
+	de uma grande revisão após a criação das histórias para adaptá-lo.
 - Definiria o token de gerenciamento desde o início, incluindo sua exibição no
 	cadastro, armazenamento apenas do hash e a consequência de não haver recuperação
-	se o organizador perder o token.
+	se o organizador perder o token. Definir como seria feita a autenticação inicialmente
+	seria muito mais proveitoso. Iniciamos o projeto sem decidir a forma, o que necessitou
+	de grandes mudanças ao longo do projeto.
 - Avaliaria e documentaria antes a consulta externa de CEP: o ViaCEP recebe o valor
 	digitado, e sua retenção está fora do controle da aplicação.
 - Tornaria os cenários de erro e privacidade ainda mais explícitos na primeira
